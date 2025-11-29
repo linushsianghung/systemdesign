@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: production
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin4
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: production
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_USER=admin
+      - CASSANDRA_PASSWORD=production
+#      - CASSANDRA_CLUSTER_NAME=system_design
+#      - CASSANDRA_DC=datacenter1
+#      - CASSANDRA_RACK=rack1
+    volumes:
+      - cassandra:/var/lib/cassandra
+
+volumes:
+  postgres:
+#    name: postgres
+  pgadmin:
+#    name: pgadmin
+  cassandra:
+#    name: cassandra
+
+networks:
+  default:
+    name: system_design
