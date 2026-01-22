@@ -1,5 +1,5 @@
 ## Introduction
-A URL Shortener is a service that takes a long URL and generates a shorter, unique alias that redirects users to the original URL. This alias is often a fixed-length string of characters. The system should be able to handle millions of URLs, allowing users to create, store, and retrieve shortened URLs efficiently. Each shortened URL needs to be unique and persistent. Additionally, the service should be able to handle high traffic, with shortened URLs redirecting to the original links in near real-time. In some cases, the service may include analytics to track link usage, such as click counts and user locations.
+A URL Shortener is a service that takes a long URL and generates a shorter, unique alias that redirects users to the original URL. Popular examples include bit.ly, TinyURL, and Twitter's t.co. This alias is often a fixed-length string of characters. The system should be able to handle millions of URLs, allowing users to create, store, and retrieve shortened URLs efficiently. Each shortened URL needs to be unique and persistent. Additionally, the service should be able to handle high traffic, with shortened URLs redirecting to the original links in near real-time. In some cases, the service may include analytics to track link usage, such as click counts and user locations.
 > Scope & Scale Estimation
 > - `100M` Daily Active Users
 > - Assuming that the Read:write ratio = `100: 1`
@@ -60,11 +60,11 @@ subgraph "Infrastructure"
     end
 
     ServiceLayer ==> URL_DB[(URL Database)]:::database
-    ServiceLayer --> Cache[(Cache)]:::cache
+    ServiceLayer --> Cache[("Cache (Redis)")]:::cache
     linkStyle 3,4 stroke-width:5px, stroke:blue
 
     subgraph "Analytics Service (Decoupled)"
-        ServiceLayer -->  MessageQueue([Message Queue]):::msgBroker --> AnalyticsService(Analytics Consumer)
+        ServiceLayer -->  MessageQueue(["Message Queue (Apache Kafka)"]):::msgBroker --> AnalyticsService(Analytics Consumer)
         AnalyticsService --> Analytics_DB[(Analytics Database)]:::database
         linkStyle 5 stroke-width:5px, stroke:brown
         linkStyle 6 stroke:orange
@@ -117,7 +117,7 @@ subgraph "Infrastructure"
     end
 
     ShorteningService ==> URL_DB[(URL Database)]:::database
-    ShorteningService ==> Cache[(Cache)]:::cache
+    ShorteningService ==> Cache[("Cache (Redis)")]:::cache
     linkStyle 3 stroke-width:5px, stroke:blue
     linkStyle 4 stroke-width:5px, stroke:purple
     
@@ -127,7 +127,7 @@ subgraph "Infrastructure"
     linkStyle 6 stroke-width:5px, stroke:purple
     
     subgraph "Analytics Service (Decoupled)"
-        RedirectionService --> MessageQueue{Message Queue}:::msgBroker --> AnalyticsService(Analytics Service)
+        RedirectionService --> MessageQueue{"Message Queue (Apache Kafka)"}:::msgBroker --> AnalyticsService(Analytics Service)
         AnalyticsService --> Analytics_DB[(Analytics Database)]
         linkStyle 7 stroke-width:5px, stroke:brown
         linkStyle 8 stroke:orange

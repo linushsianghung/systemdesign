@@ -4,9 +4,7 @@
 That's an excellent and very practical question! You've hit on a common point of confusion when looking at modern architecture diagrams.
 
 The short answer is: **Yes, you are right**. A powerful reverse proxy like Nginx can indeed be configured to perform the functions of both a load balancer and a basic API gateway.
-
 However, in a large-scale microservices architecture like this one, **using two separate, specialized components is often the better design choice** due to a clear separation of concerns and better scalability.
-
 Let's break down the distinct roles they play in our design.
 
 ##### The Role of the Load Balancer

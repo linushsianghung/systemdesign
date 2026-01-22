@@ -55,7 +55,7 @@ subgraph "Infrastructure"
     subgraph "Submission Flow"
         SubmissionService(Submission Service)
         CodeExecutionService(Code Execution Service)
-        MessageQueue([Message Queue])
+        MessageQueue(["Message Queue (Apache Kafka)"])
     end
 
     subgraph "Leaderboard Flow"
@@ -67,7 +67,7 @@ subgraph "Infrastructure"
         UserDB[(User DB)]
         ProblemDB[(Problem DB)]
         LeaderboardDB[(Leaderboard DB)]
-        LeaderboardCache[(Leaderboard Cache)]
+        LeaderboardCache[("Leaderboard Cache (Redis)")]
         SubmissionDB[(Submission DB)]
     end
 end
@@ -114,12 +114,11 @@ classDef msgBroker stroke-width:3px,stroke:magenta;
     linkStyle 18 stroke:orange
     linkStyle 19 stroke-width:5px, stroke:purple
 ```
-Let's go through the role of each component.
 
+Let's go through the role of each component.
 ### Component Deep Dive
 - Submission Flow (The Core Logic):
 This is the most critical part of the system. When a user submits code, we can't just block and wait for it to be judged. That would time out the user's request and overwhelm our web servers. An asynchronous approach is essential.
-
   1. **Client to Submission Service**: The user submits their code via the API Gateway to the `SubmissionService`.
   2. **Submission Service**:
      - It validates the request (e.g., is the user in the contest? is the problem valid?).
@@ -134,7 +133,15 @@ This is the most critical part of the system. When a user submits code, we can't
      - After judging, it updates the submission status (`ACCEPTED`, `WRONG_ANSWER`, etc.) and results in the `SubmissionDB`.
      - If the submission was part of a contest, it sends another message back via the queue to notify the `ContestService` to update the score.
 
-**Design Decisions & Trade-offs:**
+- Real-time Leaderboard (Leaderboard Flow):
+  Updating a leaderboard with 10k active users is a classic "hot-spot" problem. Using a traditional database would lead to lock contention and slow performance.
+  1. **Contest Service**: When a user solves a problem correctly for the first time during a contest, the `ContestService` (after being notified by the Judge) calculates the new score (based on problems solved and penalty time).
+  2. **Leaderboard Service**: The `ContestService` then calls the `LeaderboardService` with the `user_id` and their new `score`.
+  3. **Redis Sorted Set**: The `LeaderboardService` uses Redis and its `Sorted Set` data structure. A sorted set is perfect for leaderboards because it automatically keeps a collection of unique members sorted by their associated scores.
+      - We use the command `ZADD contest:1:leaderboard <score> <user_id>`. Redis handles ordering in O(log N) time, which is extremely fast.
+      - To get the top 50 users, we use `ZREVRANGE contest:1:leaderboard 0 49 WITHSCORES`. This is also very fast.
+
+### Design Decisions & Trade-offs:
 - ***Why a Message Queue?***
   - **Decoupling & Scalability**: The `SubmissionService` (web-facing) doesn't need to know about the `CodeExecutionService`. We can scale the number of execution workers independently based on the queue length.
   - **Resilience**: If the Judge service goes down, submissions are safely stored in the queue and will be processed once the service is back online.
@@ -143,17 +150,6 @@ This is the most critical part of the system. When a user submits code, we can't
   - **Security & Isolation**: It provides strong process, filesystem, and network isolation, which is critical when running untrusted user code.
   - **Environment Consistency**: We can have pre-built Docker images with all necessary compilers and libraries for each language, ensuring code runs in the same environment every time.
   - **Trade-off**: There's a small overhead for starting a container for each submission. For extreme low-latency requirements, other sandboxing technologies like `gVisor` or `Firecracker` could be considered, but Docker is a robust and well-understood starting point.
-
-- Real-time Leaderboard:
-Updating a leaderboard with 10k active users is a classic "hot-spot" problem. Using a traditional database would lead to lock contention and slow performance.
-
-  1. **Contest Service**: When a user solves a problem correctly for the first time during a contest, the `ContestService` (after being notified by the Judge) calculates the new score (based on problems solved and penalty time).
-  2. **Leaderboard Service**: The `ContestService` then calls the `LeaderboardService` with the `user_id` and their new `score`.
-  3. **Redis Sorted Set**: The `LeaderboardService` uses Redis and its `Sorted Set` data structure. A sorted set is perfect for leaderboards because it automatically keeps a collection of unique members sorted by their associated scores.
-     - We use the command `ZADD contest:1:leaderboard <score> <user_id>`. Redis handles ordering in O(log N) time, which is extremely fast.
-     - To get the top 50 users, we use `ZREVRANGE contest:1:leaderboard 0 49 WITHSCORES`. This is also very fast.
-
-**Design Decisions & Trade-offs:**
 - ***Why Redis Sorted Set?***
   - **Performance**: It's an in-memory data structure, making reads and writes incredibly fast, which is exactly what we need for a real-time leaderboard.
   - **Simplicity**: It provides the exact functionality we need out-of-the-box, simplifying our application logic.
@@ -214,6 +210,15 @@ CREATE TABLE contest_problems (
     contest_id BIGINT NOT NULL REFERENCES contests(id),
     problem_id BIGINT NOT NULL REFERENCES problems(id),
     PRIMARY KEY (contest_id, problem_id)
+);
+
+-- Leaderboard Table (for persistence)
+CREATE TABLE leaderboard_scores (
+    contest_id BIGINT NOT NULL REFERENCES contests(id),
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    score INT NOT NULL,
+    submission_time TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (contest_id, user_id)
 );
 ```
 

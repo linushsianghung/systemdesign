@@ -6,12 +6,13 @@ services:
     container_name: postgres
     ports:
       - "5432:5432"
+    # Reference: https://hub.docker.com/_/postgres#how-to-extend-this-image
     environment:
-      POSTGRES_DB: postgres
+      POSTGRES_DB: postgres # https://hub.docker.com/_/postgres#postgres_db
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: production
     volumes:
-      - postgres:/var/lib/postgresql/data
+      - postgres:/var/lib/postgresql
 
   pgadmin:
     image: dpage/pgadmin4:latest

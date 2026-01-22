@@ -5,7 +5,7 @@
 - [How to use Redis for Write-through Caching strategy](https://redis.io/learn/howtos/solutions/caching-architecture/write-through)
 
 ## Cache Mechanism & Design Decision
-Should we always consider Cache as a part of the architecture gets to the heart of a key trade-off in system design. It's true that caching is discussed in almost every system design interview and is a cornerstone of most large-scale applications. The short answer is: You should always consider a cache, but you should not always implement one. Think of a cache not as a mandatory component, but as a powerful tool to solve specific problems. An experienced engineer knows not just how to use the tool, but, more importantly, when and why to use it.
+Should we always consider Cache as a part of the architecture gets to the heart of a key trade-off in system design? It's true that caching is discussed in almost every system design interview and is a cornerstone of most large-scale applications. The short answer is: You should always consider a cache, but you should not always implement one. Think of a cache not as a mandatory component, but as a powerful tool to solve specific problems. An experienced engineer knows not just how to use the tool, but, more importantly, when and why to use it.
 
 ### Why is Caching so Popular? The "Pros"
 You add a cache to your system to solve one or more of these core problems:

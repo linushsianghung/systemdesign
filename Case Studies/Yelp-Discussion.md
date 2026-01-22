@@ -76,8 +76,6 @@ Let's walk through a scenario: A restaurant owner updates their phone number.
 4. **Kafka Stores the Event**: Kafka receives this event and appends it to the `business-events` topic log, where it is stored durably.
 5. **The Search Service Consumes the Event**: The `Search Service` is a **consumer** of the `business-events` topic. It's always listening for new events. It sees the `BusinessPhoneNumberUpdated` event.
 6. **Update Local Data Store**: Upon receiving the event, the `Search Service` knows it needs to update its own data. It finds the document for business "123-xyz" in its **Elasticsearch** index and updates the phone number field.
-The next time a user searches for that business, the Search Service will have the correct, up-to-date phone number.
-
 The next time a user searches for that business, the `Search Service` will have the correct, up-to-date phone number.
 
 ##### Visualizing the Flow with a Mermaid Chart
@@ -145,81 +143,6 @@ This endpoint is responsible for:
 6. **Review Service Responds**: The `Review Service` queries its own database and returns a paginated list of all the reviews for "Taco Haven", which are then displayed to the user.
 
 So, you are right to think that the services interact, but the `Search Service` uses review data to enhance discovery, while the `Review Service` is still the authority for retrieving the actual review content.
-
----
-
-#### Question: Let's dive deeper to the Event-Driven Architecture. During the study of Kafka, there is a term I continue to hear of, which is CDC. Could you please give me some introduction about what is that and what is the difference between this and Kafka? Thanks!
-The most important thing to understand is: **CDC and Kafka are not competitors; they are partners**. They solve two different problems that, when combined, create an incredibly robust system.
-
-Let's use an analogy:
-- **CDC (Change Data Capture)** is like a court reporter who sits in a courtroom and writes down everything that happens, word for word, as it happens.
-- **Apache Kafka** is like the printing press and distribution network that takes the reporter's transcript, prints thousands of copies, and delivers them reliably to every subscriber in the city.
-Now, let's dive into the technical details.
-
-##### What is CDC (Change Data Capture)?
-**CDC is a pattern or a technique, not a specific tool**. It's a process for automatically capturing row-level changes (`INSERT`, `UPDATE`, `DELETE`) made to a database and making those changes available as a stream of events.
-
-The key insight of modern CDC is that it **does not query the database**. Instead, it reads the database's internal **transaction log** (also known as a write-ahead log or WAL).
-- In PostgreSQL, this is the `Write-Ahead Log (WAL)`.
-- In MySQL, this is the `binlog`.
-- In Oracle, this is the `Redo Log`.
-Every time you write to the database, a record of that change is first appended to this log to ensure durability. CDC tools tap into this log, read the changes in real-time, and convert them into structured events.
-
-***Benefits of CDC***:
-1. **Low Latency**: It captures changes almost instantly.
-2. **No Impact on Source Database**: It doesn't add any load to the database itself, as it's just reading a log file.
-3. **Reliable & Complete**: It captures every change, even if the change was made by a DBA manually or through a different application. It guarantees you won't miss anything.
-
-##### What is the Difference and How Do They Work Together?
-This is the crucial part. CDC is the source of the change events, and Kafka is the transport for them. Let's revisit our Yelp architecture and compare two ways of generating events.
-
-***Approach 1: The Application-Level "Dual Write" (What we discussed before)***
-1. The `Business Service` receives a request to update a business's phone number.
-2. **Step A**: The service's code writes the change to its PostgreSQL database.
-3. **Step B**: The service's code then explicitly creates a `BusinessUpdated` event and publishes it to Kafka.
-
-**The Problem (The "Dual Write" Problem)**: What happens if Step A succeeds, but Step B fails (e.g., a network blip, Kafka is temporarily down)? The database is updated, but the event is never sent. The `Search Service` never finds out about the change, and the data is now **inconsistent**. This is a major issue.
-
-***Approach 2: The CDC Pattern (The Better Way)***
-1. **The Business Service** receives a request to update a business's phone number.
-2. The service's code writes the change to its PostgreSQL database. **That's it. Its job is done.**
-3. A dedicated **CDC tool** (like `Debezium`, which is designed to work with Kafka) is monitoring the PostgreSQL transaction log (the WAL).
-4. The CDC tool sees the `UPDATE` statement in the log. It automatically formats this change into a structured event.
-5. The CDC tool then publishes this event to a Kafka topic.
-
-6. This completely solves the **dual write** problem. The database transaction is the single source of truth. If the change is committed to the database, it will be in the transaction log, and therefore it will be captured and sent to Kafka.
-
-##### Visualizing the CDC Flow
-```mermaid
-sequenceDiagram
-    participant App [Business Service]
-    participant DB [PostgreSQL Database]
-    participant Log [Transaction Log (WAL)]
-    participant CDC [CDC Tool (e.g. Debezium)]
-    participant Kafka
-    participant Consumer [Search Service]
-
-    App [Business Service]->>DB [PostgreSQL Database]: UPDATE businesses SET ...
-    DB [PostgreSQL Database]->>Log [Transaction Log (WAL)]: Appends change record
-    
-    Note over Log [Transaction Log (WAL)]: Change is now durable
-
-    CDC [CDC Tool (e.g. Debezium)]->>Log [Transaction Log (WAL)]: Reads the change record
-    CDC [CDC Tool (e.g. Debezium)]->>Kafka: PUBLISH event to 'business-events' topic
-    
-    Kafka-->>Consumer [Search Service]: CONSUME event
-```
-
-##### Summary Table
-| Feature      | CDC (Change Data Capture)                                          | Apache Kafka                                                              |
-|:-------------|:-------------------------------------------------------------------|:--------------------------------------------------------------------------|
-| What is it?  | A pattern or technique for capturing database changes.             | A platform or tool for streaming events.                                  |
-| Primary Role | To source or originate event data from a database.                 | To transport, store, and distribute event data.                           |
-| How it Works | Reads the database's internal transaction log (e.g., WAL, binlog). | Manages topics where producers write events and consumers read them.      |
-| Analogy      | The court reporter.                                                | The newspaper printing press and delivery network.                        |
-| Relationship | CDC produces events that are published to Kafka.                   | Kafka consumes events from CDC tools and delivers them to other services. |
-
-In short, you use a CDC tool *to get data into Kafka* in the most reliable way possible, removing that responsibility from your application code and making your entire system more robust and less complex.
 
 ---
 

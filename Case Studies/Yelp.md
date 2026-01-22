@@ -18,28 +18,10 @@ Yelp is a popular online platform that helps users discover and evaluate local b
 3. **Low Latency**: Optimize database queries, use efficient caching mechanisms, and minimize network latency to ensure a fast user experience.
 
 ## Solution
-### Architecture
+#### Reference: [Design Yelp](https://systemdesignschool.io/problems/yelp/solution)
+
+### High-Level Architecture
 A microservices-oriented architecture would be a suitable choice for Yelp, as it offers scalability, flexibility, and resilience. This architecture would consist of several independent services, each responsible for a specific business capability.
-
-- **API Gateway**: This serves as the single entry point for all client requests. It routes requests to the appropriate downstream service, and can also handle cross-cutting concerns like authentication, rate limiting, and logging.
-- **User Service**: This service would manage user-related operations, such as user registration, login, and profile management.
-- **Business Service**: This service would be responsible for managing business information, including details like name, address, and contact information.
-- **Review Service**: This service would handle the creation, retrieval, and management of user reviews and ratings for businesses.
-- **Search Service**: To provide efficient search capabilities, a dedicated search service would be used. This service would use a search engine like `Elasticsearch` to index business data and provide fast, geo-based search results.
-
-To support these services, the following infrastructure components would be needed:
-- **Load Balancers**: To distribute traffic evenly across the services and ensure high availability.
-- **Service Discovery**: A mechanism for services to find and communicate with each other.
-- **Database**: A combination of SQL and NoSQL databases would be used to store data.
-- **Cache**: A distributed cache like Redis would be used to store frequently accessed data and reduce latency.
-- **Content Delivery Network (CDN)**: To serve static assets like images and videos quickly to users around the world.
-
-### Database per Service Pattern
-1. **Dedicated Databases**: Each service (`User`, `Business`, `Review`, `Search`) now has its own database. This allows each service to choose the best database technology for its needs (e.g., `PostgreSQL` for transactional data, `Elasticsearch` for search).
-2. **Service Isolation**: The services are completely decoupled from each other at the data layer. The `Review Service`, for instance, cannot directly access the `User` database.
-3. **Communication via APIs**: To get data from another service, a service must make an API call. For example, when creating a review, the `Review Service` would call the `User Service` and `Business Service` to validate the `user_id` and `business_id`.
-4. **Data Synchronization**: For patterns like search, the `Search Service` needs data from the `Business Service`. This is handled through a data synchronization process, which could be a direct API call or, more commonly in such architectures, an event-driven mechanism where the `Search Service` subscribes to `BusinessUpdated` events.
-
 ```mermaid
 ---
 title: Yelp System Design
@@ -54,23 +36,23 @@ subgraph "User"
 end
 
 subgraph "Infrastructure"
-    LoadBalancer([Load Balancer])
-    APIGateway([API Gateway])
-    CDN([CDN])
-
-    subgraph "Services"
-        UserService(User Service)
-        subgraph "Data Synchronization"
-            BusinessService(Business Service)
-            ReviewService(Review Service)
-            MessageQueue([Message Queue])
-        end
-        SearchService(Search Service)
-        SearchDB[(Elasticsearch)]
-        Cache[(Redis)]
+    subgraph "Network Edge Flow"
+        LoadBalancer([Load Balancer])
+        APIGateway([API Gateway])
+        CDN([Content Delivery Network])
     end
+    
+    UserService(User Service)
+    subgraph "Data Synchronisation Flow"
+        BusinessService(Business Service)
+        ReviewService(Review Service)
+        MessageQueue(["Message Queue (Kafka)"])
+        SearchService(Search Service)
+    end
+    SearchDB[(Elasticsearch)]
+    Cache[(Redis)]
 
-    subgraph "Database"
+    subgraph "Database (PostgreSQL)"
         %% Shared Database Pattern: Relational_Database[(PostgreSQL)]
         %% Database per Service Pattern
         UserDB[(User DB)]
@@ -86,9 +68,7 @@ classDef cache stroke-width:3px,stroke:cyan;
 classDef msgBroker stroke-width:3px,stroke:magenta;
 classDef search stroke-width:3px,stroke:brown;
 
-    Client -- "Requests" --> LoadBalancer
-    Client -- "Static Content" --> CDN
-    LoadBalancer --> APIGateway
+    Client --> CDN --> LoadBalancer --> APIGateway
     linkStyle 0,1,2 stroke:green
 
     %% Service
@@ -121,14 +101,31 @@ classDef search stroke-width:3px,stroke:brown;
     BusinessService -- "BusinessUpdated Event" --> MessageQueue:::msgBroker --> SearchService
     ReviewService -- "ReviewCreated Event" --> MessageQueue:::msgBroker --> SearchService
     linkStyle 16,17,18,19 stroke-width:5px, stroke:brown
-
 ```
+
+- **API Gateway**: This serves as the single entry point for all client requests. It routes requests to the appropriate downstream service, and can also handle cross-cutting concerns like authentication, rate limiting, and logging.
+- **User Service**: This service would manage user-related operations, such as user registration, login, and profile management.
+- **Business Service**: This service would be responsible for managing business information, including details like name, address, and contact information.
+- **Review Service**: This service would handle the creation, retrieval, and management of user reviews and ratings for businesses.
+- **Search Service**: To provide efficient search capabilities, a dedicated search service would be used. This service would use a search engine like `Elasticsearch` to index business data and provide fast, geo-based search results.
+
+To support these services, the following infrastructure components would be needed:
+- **Load Balancers**: To distribute traffic evenly across the services and ensure high availability.
+- **Service Discovery**: A mechanism for services to find and communicate with each other.
+- **Database**: A combination of SQL and NoSQL databases would be used to store data.
+- **Cache**: A distributed cache like Redis would be used to store frequently accessed data and reduce latency.
+- **Content Delivery Network (CDN)**: To serve static assets like images and videos quickly to users around the world.
+
+### Database per Service Pattern
+1. **Dedicated Databases**: Each service (`User`, `Business`, `Review`, `Search`) now has its own database. This allows each service to choose the best database technology for its needs (e.g., `PostgreSQL` for transactional data, `Elasticsearch` for search).
+2. **Service Isolation**: The services are completely decoupled from each other at the data layer. The `Review Service`, for instance, cannot directly access the `User` database.
+3. **Communication via APIs**: To get data from another service, a service must make an API call. For example, when creating a review, the `Review Service` would call the `User Service` and `Business Service` to validate the `user_id` and `business_id`.
+4. **Data Synchronization**: For patterns like search, the `Search Service` needs data from the `Business Service`. This is handled through a data synchronization process, which could be a direct API call or, more commonly in such architectures, an event-driven mechanism where the `Search Service` subscribes to `BusinessUpdated` events.
 
 ### Database Schema
 For the database, a combination of SQL and NoSQL databases would be a good fit.
 
-a. Relational Database (e.g., PostgreSQL)
-A relational database would be used for data that requires strong consistency, such as user and business information.
+A. **Relational Database (e.g., PostgreSQL)**: A relational database would be used for data that requires strong consistency, such as user and business information.
 ```sql
 -- users Table
 CREATE TABLE users (
@@ -168,5 +165,4 @@ CREATE TABLE reviews (
 );
 ```
 
-b. NoSQL Database (e.g., Elasticsearch)
-For the search functionality, a NoSQL database like Elasticsearch would be used to store a denormalized version of the business data. This would allow for fast and efficient full-text and geospatial searches.
+B. **NoSQL Database (e.g., Elasticsearch)**: For the search functionality, a NoSQL database like Elasticsearch would be used to store a denormalized version of the business data. This would allow for fast and efficient full-text and geospatial searches.
