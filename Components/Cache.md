@@ -199,3 +199,63 @@ In practice:
 - Some managed cache systems (e.g. AWS ElasticCache with Redis or Memcached) can act as a **Read-Through** cache, meaning:
   - The cache itself can call a “loader function” on miss.
   - That abstracts away the cache-aside logic from the application.
+
+---
+
+## Discussion
+### Question: I've heard that even in Write-Through pattern, it can still experience a cache miss. What is the scenario and why is that?
+🔍 Why Cache Misses Still Occur in Write-Through
+- 🧩 Scenario 1: Cache Eviction (TTL or Memory Limit)
+    Even in write-through:
+    - The cache can evict entries due to:
+    - TTL (time-to-live) expiration, or 
+    - Memory pressure / LRU policy in Redis.
+
+    So, even if writes always go through the cache, the cached value might have been evicted before the next read.
+    Example:
+    - App writes user u1 → cache & DB both updated. 
+    - Redis evicts user:u1 key after TTL expiry or memory limit. 
+    - Next read → cache miss → cache must fetch from DB again.
+
+    🧠 Takeaway: Write-through doesn’t prevent eviction or expiry — it only ensures writes go to both cache and DB.
+
+- 🧩 Scenario 2: Cache Cold Start or Restart
+    When a new Redis instance is started (e.g., after restart or cluster scaling), its cache is empty.
+
+    Even though your write logic uses write-through:
+    - Existing data already in DB wasn’t written via cache (historical data).
+    - Cache needs to “warm up” via reads or preloading.
+
+    Result: The first time an existing key is requested, you’ll hit a cache miss.
+
+- 🧩 Scenario 3: Partial Key Coverage
+    If your application writes only certain entities via the write-through path, but other data was:
+    - Seeded directly in DB, or 
+    - Modified by other systems (e.g., ETL job, admin panel)
+
+    Then that data won’t yet exist in the cache — leading again to a miss when first read.
+
+- 🧩 Scenario 4: Distributed Cache Synchronization Lag
+    If you use multiple cache nodes or replicas, it’s possible that:
+    - A write hits node A.
+    - A read hits node B that hasn’t yet synchronized (if replication lag or async updates).
+
+    Result: a temporary cache miss (or stale read).
+
+### Question: So in those cache miss scenarios, how application can get latest data back? Does the application have to handle this itself?
+Let’s unpack it carefully: When a cache miss occurs (even under Write-Through), who is responsible for getting the data back into cache and keeping it fresh?
+- **Handling**: The read path still looks like Cache-Aside for misses:
+  - Application reads from cache.
+  - If miss → application queries the database.
+  - After getting fresh data, it writes to cache (and optionally DB if needed — though DB is usually already up-to-date).
+- **Why Not Automatic?**: Redis (or similar caches) typically don’t have direct access to your DB schema or query logic — so the application must decide how to reload the data and what format to store it in cache.
+
+So in practice:
+    - The application always detects and handles cache misses.
+    - The cache system (like Redis) doesn’t query your DB automatically unless you integrate a “read-through” proxy layer (rare in Redis setups).
+
+- **Optional Optimization - `Read-Through Proxy`**: Some managed cache systems (e.g. `AWS ElastiCache` with Redis or Memcached, or custom middlewares) can act as a **read-through cache**, meaning:
+  - The cache itself can call a “loader function” on miss.
+  - That abstracts away the cache-aside logic from the application.
+
+But in plain Redis, this doesn’t exist out of the box — it’s your app’s job.

@@ -138,8 +138,8 @@ No single database is perfect for all tasks. We use different databases optimize
 
 - **Scalability and Availability**
   - **Microservices**: The architecture is broken down into small, independent services (`Authentication`, `Comment`, `Vote`, etc.). This allows each service to be scaled independently based on its specific load. For example, if reading comments becomes a bottleneck, we can add more instances of the `Comment Read Service` without touching anything else.
-  - **Load Balancers**: A dedicated Load Balancer sits in front of the API Gateway to distribute traffic across multiple Gateway instances. It also handles **TLS Termination** (decrypting HTTPS), offloading this CPU-intensive task from the application logic.
   - **API Gateway**: Acts as the single entry point for routing requests to the appropriate microservices (e.g., `/comments` to Comment Service). It handles cross-cutting concerns like authentication, rate limiting, and service discovery.
+  - **Load Balancers**: A dedicated Load Balancer sits in front of the API Gateway to distribute traffic across multiple Gateway instances. It also handles **TLS Termination** (decrypting HTTPS), offloading this CPU-intensive task from the application logic.
   - **CDN (Content Delivery Network)**: Serves the static assets (JavaScript plugin, CSS) from edge locations closer to the user, which dramatically reduces initial load time and improves the user experience, contributing to the **low latency** goal.
 
 - **Security Considerations (WAF)**
@@ -210,6 +210,7 @@ EXECUTE FUNCTION trigger_set_timestamp();
 ```
 
 B. **Cassandra Schema (Comment & Vote Data)**: For comments, the requirements are massive write throughput and read scalability. A NoSQL database like Apache Cassandra is perfect for this. The key principle in Cassandra is to design your tables based on your queries. We will denormalize data and create multiple tables to serve different read patterns efficiently.
+
 **Design Considerations for Cassandra:**
 - **Query-Driven Design**: We have three tables, each serving a specific query pattern. This is standard practice in Cassandra and is the key to its performance at scale.
 - **comments_by_article**:

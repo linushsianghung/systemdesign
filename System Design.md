@@ -155,8 +155,9 @@ Reference: [Master System Design Interviews: 5 Key Questions & a Winning Templat
 - References:
   - [Making microservices Fault Tolerant and Resilient](https://medium.com/@ritesh.panigrahi/making-microservices-fault-tolerant-and-resilient-a2920ae156e4)
   - [RESILIENCE VS. FAULT TOLERANCE](https://www.ufried.com/blog/resilience_vs_fault_tolerance/)
-> Reliable system is always an available system
-> Availability ca nbe maintained by redundancy, but system may not be reliable
+
+> Reliable system is always an available system.
+> Availability can be maintained by redundancy, but system may not be reliable
 - Fault Tolerance:
 > The ability of a software system to maintain its functionality in the event of the failure within some of its components which is one of the strategy to achieve availability.
 > e.g. Netflix using `Graceful Degradation` to provide personal recommendation
@@ -170,7 +171,7 @@ Reference: [Master System Design Interviews: 5 Key Questions & a Winning Templat
 - [A Beginner's Guide to WebSockets](https://www.youtube.com/watch?v=8ARodQ4Wlf4)
 
 
-## [Database](Components/Database.md#Database)
+## [Database](Components/Database/Database.md#Database)
 
 ## [Security](Components/Security.md)
 

@@ -168,17 +168,29 @@ Here's a simplified schema to illustrate the data models.
 
 - Relational Database (PostgreSQL)
 We'll use a relational database for data that has strong integrity and relational needs, like users and problems.
-```sql
+```postgresql
 -- /Users/linus/Documents/intelliJWorkspace/OpenSources/SystemDesign/StudyRoom/Case Studies/db_schema.sql
 
 -- Users Table
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(255) NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ -- Support for Soft Deletes
 );
+
+-- Partial Unique Indexes for Soft Deletes
+-- This ensures uniqueness ONLY for active users.
+-- It also keeps the index small by ignoring deleted records.
+CREATE UNIQUE INDEX idx_users_username_active ON users(username) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_users_email_active ON users(email) WHERE deleted_at IS NULL;
+
+-- To keep the database healthy in the very long run, you typically implement a Pruning Policy:
+-- 1. The Archive Job: A background script (cron job) runs once a week.
+-- 2. The Logic: It looks for records where deleted_at is older than, say, 90 days or 1 year.
+-- 3. The Action: It performs a Hard Delete on those specific rows (or moves them to a separate users_archive table for cold storage/analytics).
 
 -- Problems Table
 CREATE TABLE problems (
@@ -186,17 +198,21 @@ CREATE TABLE problems (
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     difficulty VARCHAR(20) NOT NULL, -- e.g., 'Easy', 'Medium', 'Hard'
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ -- Support for Soft Deletes
 );
 
 -- Test Cases Table (linked to problems)
 CREATE TABLE test_cases (
     id BIGSERIAL PRIMARY KEY,
-    problem_id BIGINT NOT NULL REFERENCES problems(id),
+    problem_id BIGINT NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
     input TEXT NOT NULL,
     expected_output TEXT NOT NULL,
     is_hidden BOOLEAN DEFAULT FALSE
 );
+
+-- Index for foreign key lookup performance
+CREATE INDEX idx_test_cases_problem_id ON test_cases(problem_id);
 
 -- Contests and Contest Problems
 CREATE TABLE contests (
@@ -207,15 +223,15 @@ CREATE TABLE contests (
 );
 
 CREATE TABLE contest_problems (
-    contest_id BIGINT NOT NULL REFERENCES contests(id),
-    problem_id BIGINT NOT NULL REFERENCES problems(id),
+    contest_id BIGINT NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
+    problem_id BIGINT NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
     PRIMARY KEY (contest_id, problem_id)
 );
 
 -- Leaderboard Table (for persistence)
 CREATE TABLE leaderboard_scores (
-    contest_id BIGINT NOT NULL REFERENCES contests(id),
-    user_id BIGINT NOT NULL REFERENCES users(id),
+    contest_id BIGINT NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     score INT NOT NULL,
     submission_time TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (contest_id, user_id)
@@ -224,29 +240,25 @@ CREATE TABLE leaderboard_scores (
 
 - NoSQL Database (Cassandra or similar)
 For submissions, we expect a very high write throughput, and the data access pattern is simple (usually by submission_id or user_id + problem_id). A NoSQL database like Cassandra is a good choice.
-```sql
+```cassandraql
 -- Cassandra Query Language (CQL) for submissions
-
 CREATE KEYSPACE leetcode WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};
 
 CREATE TABLE submissions (
-    id UUID,
-    user_id BIGINT,
-    problem_id BIGINT,
-    contest_id BIGINT,
-    code TEXT,
-    language VARCHAR,
-    status VARCHAR, -- PENDING, RUNNING, ACCEPTED, WRONG_ANSWER, etc.
-    execution_time_ms INT,
+    id                  UUID,
+    user_id             BIGINT,
+    problem_id          BIGINT,
+    contest_id          BIGINT,
+    code                TEXT,
+    language            VARCHAR,
+    status              VARCHAR, -- PENDING, RUNNING, ACCEPTED, WRONG_ANSWER, etc.
+    execution_time_ms   INT,
     execution_memory_kb INT,
-    submitted_at TIMESTAMP,
-    PRIMARY KEY (id)
-);
+    submitted_at        TIMESTAMP,
+    PRIMARY KEY ((user_id, problem_id), submitted_at, id)
+) WITH CLUSTERING ORDER BY (submitted_at DESC, id DESC);
 
--- We can create secondary indexes or materialized views for other query patterns
--- For example, to quickly find all submissions by a user for a problem
-CREATE INDEX ON submissions (user_id);
-CREATE INDEX ON submissions (problem_id);
+-- This allows efficient queries like: "Get all submissions by user X for problem Y order by time"
 ```
 
 **Design Decisions & Trade-offs:**
@@ -254,5 +266,16 @@ CREATE INDEX ON submissions (problem_id);
   - **Best Tool for the Job**: SQL (PostgreSQL) is excellent for the relational data of users, problems, and contests, where data integrity is paramount. NoSQL (Cassandra) excels at handling the massive write volume and simple key-value lookups for submissions.
   - **Scalability**: Cassandra scales horizontally very well, which is what we need for the ever-growing submission data.
   - **Trade-off**: This adds operational complexity. We now have two different database systems to manage, monitor, and maintain.
+
+### Data Retention & Cleanup
+From requirement: **User submitted code have a retention policy of 1 month**
+- **Scheduled Job (runs daily)**:
+  - Query Cassandra for submission older than 30 days
+  - Delete in batches (like 1000 at a time)
+  - Update metrics (storage freed)
+- **Soft Delete Option (better for analytics)**:
+  - Add 'deleted_at' column
+  - Archive to cheaper storage (like s3) before deletion
+  - Maintain submission count for statistics
 
 

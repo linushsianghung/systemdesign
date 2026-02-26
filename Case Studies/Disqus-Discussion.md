@@ -84,7 +84,6 @@ Here is the explanation of why we need a separate table and what "Read-Before-Wr
 If you store upvotes as a standard Integer (or BigInt) column in the main table, you run into the **Lost Update** problem due to race conditions.
 
 **The Scenario: Two users vote at the exact same time.**
-
 Imagine the current vote count is 10.
 1. User A wants to upvote. Their app reads the current count: 10.
 2. User B wants to upvote. Their app reads the current count: 10.
@@ -97,6 +96,7 @@ Imagine the current vote count is 10.
 - Cassandra applies this `+1` operation internally. Even if 100 requests come in at once, Cassandra merges them successfully (eventually) to reach the correct count.
 
 **The Technical Limitation**
+
 Because `counter` columns require completely different internal handling (they use Conflict-Free Replicated Data Types, or CRDTs) compared to standard text/integer columns (which use Last-Write-Wins), Cassandra enforces a strict rule:
 >A table that contains a counter column can ONLY contain counter columns and Primary Key columns.
 
