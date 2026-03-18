@@ -4,7 +4,6 @@
 Reference:
 - [PostgreSQL - Index Types](https://www.postgresql.org/docs/current/indexes-types.html)
 - [Use The Index, Luke!](https://use-the-index-luke.com/)
----
 
 ```text
 Index is designed based on Query:
@@ -25,6 +24,7 @@ Multi-Columns Index =>
 1. Uniqueness
 2. efficiency because of Covering 
 ```
+---
 
 ## B-Tree & B+Tree
 Reference:
@@ -312,16 +312,10 @@ SELECT * FROM users WHERE id IN (1000, 1001, 1002, ...);
 > Hash index explicitly breaks ordering, so it breaks locality at every cache level.
 > 
 > Hash indexes have poor cache behavior because they destroy locality. Each lookup jumps to an unrelated bucket and page, so pages are rarely reused. This prevents CPU cache reuse, defeats OS read-ahead, lowers buffer pool hit rate, and causes random I/O. In contrast, B+Tree leaf nodes are ordered and sequential, which makes them very cache-friendly.
+---
 
-
-## LSM Tree + SSTable
-- [LSM Trees: the Go-To Data Structure for Databases, Search Engines, and More](https://medium.com/@dwivedi.ankit21/lsm-trees-the-go-to-data-structure-for-databases-search-engines-and-more-c3a48fa469d2)
-- [Log Structured Merge Tree Definition](https://www.scylladb.com/glossary/log-structured-merge-tree/)
-- Really fast to write, i.e. just write to memory layer first (memtable) but slow to read, i.e. have to read from multiple SSTable
-
-
-- Why LSM trees trade cache locality for write throughput
-- Why column stores love sequential scans
+## Nested Loop Join vs Hash Join
+Reference: [Introducing Hash Join Algorithm](https://readyset.io/blog/introducing-hash-join-algorithm)
 
 ## Optimistic vs. Pessimistic locking
 - **Pessimistic Locking**:
@@ -349,3 +343,13 @@ SELECT * FROM users WHERE id IN (1000, 1001, 1002, ...);
   -- Check if update succeeded (rows affected == 1)
   ```
 > Pessimistic locking prevents conflicts by locking data before access, which guarantees consistency but reduces concurrency. Optimistic locking allows concurrent access and checks for conflicts at commit time, improving throughput but requiring retries when conflicts occur. The choice depends on contention patterns.
+---
+
+## LSM Tree + SSTable
+- [LSM Trees: the Go-To Data Structure for Databases, Search Engines, and More](https://medium.com/@dwivedi.ankit21/lsm-trees-the-go-to-data-structure-for-databases-search-engines-and-more-c3a48fa469d2)
+- [Log Structured Merge Tree Definition](https://www.scylladb.com/glossary/log-structured-merge-tree/)
+- Really fast to write, i.e. just write to memory layer first (memtable) but slow to read, i.e. have to read from multiple SSTable
+
+
+- Why LSM trees trade cache locality for write throughput
+- Why column stores love sequential scans

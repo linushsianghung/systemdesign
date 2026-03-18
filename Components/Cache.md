@@ -10,7 +10,7 @@ Should we always consider Cache as a part of the architecture gets to the heart 
 ### Why is Caching so Popular? The "Pros"
 You add a cache to your system to solve one or more of these core problems:
 1. **Improve Performance (Reduce Latency)**: This is the most common reason. Reading data from an in-memory cache like Redis is orders of magnitude faster than reading from a disk-based database (even one with SSDs). For example in LeetCode system, fetching a problem description or the current leaderboard from a cache will feel instantaneous to the user, whereas hitting the database every time could introduce noticeable lag under load.
-2. **Reduce Load on Backend Systems**: Every request served from the cache is one less request your database has to handle. This is crucial for scalability. During a contest, thousands of users might be viewing the same few problems. Serving those problem descriptions from a cache prevents the database from being overwhelmed by thousands of identical `SELECT` queries, allowing it to dedicate its resources to more critical tasks.
+2. **Reduce Load on Backend Systems**: Every request served from the cache is one less request your database has to handle. This is crucial for scalability. For example, during a contest, thousands of users might be viewing the same few problems. Serving those problem descriptions from a cache prevents the database from being overwhelmed by thousands of identical `SELECT` queries, allowing it to dedicate its resources to more critical tasks.
 3. **Increase Availability**: If the primary database has a temporary failure or becomes slow, a cache can continue to serve data, allowing parts of your application to remain functional in a degraded state. This is a form of fault tolerance.
 4. **Save Costs**: In cloud environments, database operations and provisioned throughput can be expensive. By reducing the number of database reads, a cache can directly lower your operational costs.
 
@@ -35,11 +35,9 @@ So, how do you decide? Ask yourself these questions:
     - **NO**: If the data is a simple key-value lookup in an indexed database table, the performance gain from caching might be minimal, especially at low traffic levels.
 
 ### Conclusion: Start Simple, Add When Needed
-For a new system, the best practice is often to **build it without a cache first**.
-
-Focus on a clean design and a well-indexed database. Once the system is running, use monitoring and profiling tools to identify the actual performance bottlenecks. Is a specific database query too slow? Is a particular service getting too much traffic?
-
-When you have **data-driven evidence** of a performance problem, then you can strategically apply caching to solve that specific issue. This approach prevents "premature optimization" and keeps your system as simple as possible for as long as possible.
+- For a new system, the best practice is often to **build it without a cache first**.
+- Focus on a clean design and a well-indexed database. Once the system is running, use monitoring and profiling tools to identify the actual performance bottlenecks. Is a specific database query too slow? Is a particular service getting too much traffic? 
+- When you have **data-driven evidence** of a performance problem, then you can strategically apply caching to solve that specific issue. This approach prevents "premature optimization" and keeps your system as simple as possible for as long as possible.
 
 ---
 

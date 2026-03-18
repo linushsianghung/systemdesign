@@ -43,8 +43,7 @@ So this may or may not use a poller — on Windows it doesn’t need a poller (k
 #### Question: Could you please tell me more about how CompletableFuture using threads to run asynchronously?
 Perfect follow-up 👌 Let’s unpack how CompletableFuture in Java achieves asynchrony.
 
-- *Basic idea**
-CompletableFuture itself is just a container for a result that will be available in the future. It doesn’t create threads or poll sockets by itself. Instead, it delegates execution to a thread pool (usually ForkJoinPool.commonPool() unless you specify another Executor ).
+- *Basic idea*: CompletableFuture itself is just a container for a result that will be available in the future. It doesn’t create threads or poll sockets by itself. Instead, it delegates execution to a thread pool (usually ForkJoinPool.commonPool() unless you specify another Executor ).
 So when you call something like:
 ```java
 CompletableFuture.supplyAsync(() -> doWork());
@@ -86,7 +85,7 @@ That’s why for non-blocking I/O, libraries like `Netty` or `Spring WebFlux` co
 CompletableFuture achieves asynchrony by **submitting tasks to a thread pool (usually ForkJoinPool)**, where worker threads execute them in parallel; it doesn’t leverage OS-level I/O pollers
 
 
-#### Question: From Java 21, the virtual is released. I guess virtual thread use the network poller mechanism under the hood, right?
+#### Question: From Java 21, the virtual threads is released. I guess virtual threads use the network poller mechanism under the hood, right?
 Excellent intuition 🚀 Let’s walk through this carefully — because Java 21’s virtual threads (Project Loom)do integrate with the OS’s network poller mechanism, but not in the same way as NIO or Netty.
 
 🔎 **What are virtual threads?**

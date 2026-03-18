@@ -117,17 +117,15 @@ NoSQL databases are non-relational systems designed for **flexible schemas**, **
 > Great for applications with write high volume and consistency is not the first priority.
 > e.g. Chat Application
 
+- [Architecture](https://cassandra.apache.org/doc/latest/cassandra/architecture/overview.html) 
+- [Storage Engine](https://cassandra.apache.org/doc/latest/cassandra/architecture/storage-engine.html)
+- [What is Apache Cassandra?-ScyllaDB](https://www.scylladb.com/learn/apache-cassandra/introduction-to-apache-cassandra/)
+- [Technical Glossary-ScyllaDB](https://www.scylladb.com/technical-glossary/)
+
 - Implementation
   - [DS201.17 Write Path | Foundations of Apache Cassandra](https://www.youtube.com/watch?v=mDd4I-isodE)
   - [DS201.18 Read Path | Foundations of Apache Cassandra](https://www.youtube.com/watch?v=x6g0sUi-5tw)
   - [DS201.19 Compaction | Foundations of Apache Cassandra](https://www.youtube.com/watch?v=69sHSF0iUqg)
-
-#### Apache HBase
-- **Wide Column** Data Model
-- **Single Leader** replication
-- **LSM Tree** index: Really fast write
-- Column Oriented Storage
-> Great for applications that needs fast column read
 ---
 
 ## Database Internals
